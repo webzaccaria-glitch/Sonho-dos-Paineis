@@ -945,17 +945,8 @@ function exportXlsx(pedidos, kits, precos, label) {
     XLSX.utils.book_append_sheet(wb,ws,nome.slice(0,31));
   });
 
-  // ── Download direto ──
-  const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`SonhoPaineis_${label.replace(/[\s\/]/g,'_')}.xlsx`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  // ── Download via XLSX.writeFile (funciona em todos os navegadores e celulares) ──
+  XLSX.writeFile(wb, `SonhoPaineis_${label.replace(/[\s\/]/g,'_')}.xlsx`);
 }
 
 // ─────────────────────────────────────────────
