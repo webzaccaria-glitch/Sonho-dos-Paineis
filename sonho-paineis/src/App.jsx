@@ -714,20 +714,23 @@ function TabExportar({pedidos,kits,precos}) {
   const [dataMes,  setDM] = useState(mesHj());
   const [cIni,     setCI] = useState(hoje());
   const [cFim,     setCF] = useState(hoje());
-  const [busy,   setBusy]  = useState(false);
-  const [dlLink, setDlLink]= useState(null);
+  const [busy,  setBusy] = useState(false);
+  const [ok,    setOk]   = useState(false);
+  const [erro,  setErro] = useState('');
 
-  useEffect(()=>{
-    if(dlLink?.url) URL.revokeObjectURL(dlLink.url);
-    setDlLink(null);
-  },[tipo,dataDia,dataSem,dataMes,cIni,cFim]);
+  useEffect(()=>{ setOk(false); setErro(''); },[tipo,dataDia,dataSem,dataMes,cIni,cFim]);
 
   const gerar = async ()=>{
     if(!filtrados.length) return;
-    if(dlLink?.url) URL.revokeObjectURL(dlLink.url);
-    setBusy(true);
-    try { const r=exportXlsx(filtrados,kits,precos,labelPeriodo); setDlLink(r); }
-    catch(e){ console.error(e); }
+    setBusy(true); setErro(''); setOk(false);
+    try {
+      exportXlsx(filtrados,kits,precos,labelPeriodo);
+      setOk(true);
+      setTimeout(()=>setOk(false), 4000);
+    } catch(e){
+      console.error(e);
+      setErro('Erro ao gerar o arquivo. Tente novamente.');
+    }
     setBusy(false);
   };
 
@@ -843,36 +846,14 @@ function TabExportar({pedidos,kits,precos}) {
         </div>
       )}
 
-      {/* Botão gerar */}
-      {!dlLink && (
-        <button onClick={gerar} disabled={busy||filtrados.length===0}
-          className="w-full rounded-2xl py-4 font-medium text-white flex items-center justify-center gap-2 disabled:opacity-40"
-          style={{background:'#C65D3C'}}>
-          {busy?'Preparando arquivo…':<><FileDown size={18}/>Gerar planilha Excel</>}
-        </button>
-      )}
+      {/* Botão exportar */}
+      <button onClick={gerar} disabled={busy||filtrados.length===0}
+        className="w-full rounded-2xl py-4 font-medium text-white flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+        style={{background: ok ? '#3F6E3A' : '#C65D3C'}}>
+        {busy ? 'Gerando arquivo…' : ok ? <><Check size={18}/>Arquivo baixado!</> : <><FileDown size={18}/>Exportar para Excel</>}
+      </button>
 
-      {/* Link de download — aparece após gerar */}
-      {dlLink && (
-        <div className="rounded-2xl overflow-hidden border-2 border-stone-900 ai">
-          <div className="bg-stone-900 px-5 py-3 flex items-center gap-2">
-            <Check size={16} className="text-green-400"/>
-            <span className="text-sm font-medium text-white">Arquivo pronto!</span>
-          </div>
-          <div className="bg-white px-5 py-4 flex flex-col gap-3">
-            <p className="text-sm text-stone-600 text-center">Toque no botão abaixo para baixar a planilha</p>
-            <a href={dlLink.url} download={dlLink.filename}
-              className="w-full rounded-xl py-4 font-semibold text-white flex items-center justify-center gap-2 text-base"
-              style={{background:'#3F6E3A'}}>
-              <FileDown size={20}/> Baixar — {dlLink.filename}
-            </a>
-            <button onClick={()=>{URL.revokeObjectURL(dlLink.url);setDlLink(null);}}
-              className="text-xs text-stone-400 hover:text-stone-600 text-center">
-              Gerar outro período
-            </button>
-          </div>
-        </div>
-      )}
+      {erro && <ErrBox msg={erro}/>}
 
       {filtrados.length===0&&tipo!=='todos'&&(
         <p className="text-center text-xs text-stone-400">Nenhum pedido no período selecionado</p>
@@ -964,11 +945,17 @@ function exportXlsx(pedidos, kits, precos, label) {
     XLSX.utils.book_append_sheet(wb,ws,nome.slice(0,31));
   });
 
-  // ── Download ──
+  // ── Download direto ──
   const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob);
-  return { url, filename:`SonhoPaineis_${label.replace(/[\s\/]/g,'_')}.xlsx` };
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`SonhoPaineis_${label.replace(/[\s\/]/g,'_')}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
 
 // ─────────────────────────────────────────────
