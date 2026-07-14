@@ -3,7 +3,7 @@ import { dbGet, dbSet } from './supabase.js';
 import { Plus, Trash2, Package, Calculator, TrendingUp, X, Check, AlertCircle,
          ChevronDown, ChevronLeft, ChevronRight, Lock, Unlock, Eye, EyeOff, KeyRound,
          Pencil, PackagePlus, FileDown, FileSpreadsheet, Calendar, Search,
-         ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+         ArrowUp, ArrowDown, GripVertical, Wallet, Boxes, Settings, Sparkles, ClipboardCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────
@@ -229,50 +229,106 @@ export default function App() {
 
   if(!ready) return <div className="min-h-screen flex items-center justify-center" style={{background:'#FAF7F2'}}><p className="text-stone-400">Carregando…</p></div>;
 
-  const ADMIN_TABS=[
-    {id:'pedidos',  l:'Pedidos',   I:Package},
-    {id:'custos',   l:'Custos',    I:Calculator},
-    {id:'resumo',   l:'Resumo',    I:TrendingUp},
-    {id:'exportar', l:'Exportar',  I:FileSpreadsheet},
+  const NAV_ITEMS=[
+    {id:'pedidos',    l:'Pedidos',       I:Package,       pub:true},
+    {id:'pagamento',  l:'Pedidos realizados', I:ClipboardCheck, pub:false},
+    {id:'resumo',     l:'Relatório',     I:TrendingUp,    pub:false},
+    {id:'custos',     l:'Estoque',       I:Boxes,         pub:false},
+    {id:'config',     l:'Configuração',  I:Settings,      pub:false},
   ];
-  const PUBLIC_TABS=[{id:'pedidos',l:'Pedidos',I:Package}];
-  const tabs = isAdmin ? ADMIN_TABS : PUBLIC_TABS;
+  const goTo = (id,pub) => { if(!pub && !isAdmin){ setAuth(true); return; } setTab(id); };
 
   return (
     <div className="min-h-screen" style={{background:'#FAF7F2'}}>
 
-
-      {/* ── HEADER ── */}
-      <header className="sticky top-0 z-20 border-b border-stone-200/70 bg-white/70 backdrop-blur">
-        <div className="max-w-4xl mx-auto px-4 pt-4 flex items-center justify-between">
+      {/* ── SIDEBAR (desktop) ── */}
+      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-stone-200/70 z-30">
+        <div style={{height:'3px',background:'linear-gradient(90deg,#C65D3C,#E8946F,#C65D3C)',backgroundSize:'200% 100%',animation:'shimmer 6s linear infinite'}}/>
+        <div className="px-5 pt-5 pb-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 fd text-white text-lg font-semibold"
+            style={{background:'linear-gradient(135deg,#C65D3C,#A6472B)',boxShadow:'0 4px 14px rgba(198,93,60,0.35)'}}>
+            SP
+          </div>
           <div>
-            <h1 className="fd font-semibold text-stone-900 leading-tight" style={{fontSize:'clamp(1rem,4vw,1.4rem)',letterSpacing:'.03em'}}>
-              SONHO DOS <span className="italic" style={{color:'#C65D3C'}}>PAINÉIS</span>
+            <h1 className="fd font-semibold text-stone-900 leading-tight" style={{fontSize:'1.05rem',letterSpacing:'.03em'}}>
+              SONHO DOS <span className="italic block" style={{color:'#C65D3C'}}>PAINÉIS</span>
             </h1>
-            <p className="text-[11px] text-stone-500 tracking-widest uppercase mt-0.5">controle de entrada</p>
+            <p className="text-[10px] text-stone-500 tracking-widest uppercase mt-0.5">controle de entrada</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+          {NAV_ITEMS.map(({id,l,I,pub})=>{
+            const active = tab===id;
+            const locked = !pub && !isAdmin;
+            return (
+              <button key={id} onClick={()=>goTo(id,pub)}
+                className={`w-full relative px-3.5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition-all duration-300 ${active?'text-white':'text-stone-600 hover:bg-stone-100'}`}
+                style={active?{background:'linear-gradient(135deg,#C65D3C,#A6472B)',boxShadow:'0 3px 10px rgba(198,93,60,0.3)'}:{}}>
+                <I size={16}/>{l}
+                {locked && <Lock size={12} className="ml-auto opacity-50"/>}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="p-3">
+          <div className="rounded-2xl p-4" style={{background:'linear-gradient(145deg,#FFF3EC,#FFE4D6)'}}>
+            <Sparkles size={18} style={{color:'#C65D3C'}}/>
+            <p className="fd text-sm text-stone-900 mt-2 leading-snug">
+              {isAdmin ? 'Você está no modo administrador.' : 'Organize seus pedidos e acompanhe tudo com mais controle.'}
+            </p>
+            <button onClick={()=>isAdmin?lock():setAuth(true)}
+              className="mt-3 w-full rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              style={{background:'#FFFFFF',color:'#A6472B'}}>
+              {isAdmin?<><Unlock size={13}/> Bloquear admin</>:<><Lock size={13}/> Área administrativa</>}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── HEADER (mobile) ── */}
+      <header className="md:hidden sticky top-0 z-20 bg-white/80 backdrop-blur-xl" style={{boxShadow:'0 1px 0 rgba(28,25,23,0.06)'}}>
+        <div style={{height:'3px',background:'linear-gradient(90deg,#C65D3C,#E8946F,#C65D3C)',backgroundSize:'200% 100%',animation:'shimmer 6s linear infinite'}}/>
+        <div className="max-w-4xl mx-auto px-4 pt-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 fd text-white text-lg font-semibold"
+              style={{background:'linear-gradient(135deg,#C65D3C,#A6472B)',boxShadow:'0 4px 14px rgba(198,93,60,0.35)'}}>
+              SP
+            </div>
+            <div>
+              <h1 className="fd font-semibold text-stone-900 leading-tight" style={{fontSize:'clamp(1rem,4vw,1.4rem)',letterSpacing:'.03em'}}>
+                SONHO DOS <span className="italic" style={{color:'#C65D3C'}}>PAINÉIS</span>
+              </h1>
+              <p className="text-[11px] text-stone-500 tracking-widest uppercase mt-0.5">controle de entrada</p>
+            </div>
           </div>
           <button onClick={()=>isAdmin?lock():setAuth(true)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isAdmin?'bg-stone-900 text-white':'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isAdmin?'text-white':'bg-stone-100 text-stone-500 hover:bg-stone-200 hover:scale-105'}`}
+            style={isAdmin?{background:'linear-gradient(135deg,#2A2420,#1C1917)',boxShadow:'0 4px 14px rgba(28,25,23,0.35)'}:{}}
             title={isAdmin?'Bloquear admin':'Área administrativa'}>
             {isAdmin?<Unlock size={15}/>:<Lock size={15}/>}
           </button>
         </div>
-        <nav className="max-w-4xl mx-auto px-4 flex overflow-x-auto">
-          {tabs.map(({id,l,I})=>(
-            <button key={id} onClick={()=>setTab(id)}
-              className={`relative px-4 py-3 text-sm font-medium flex items-center gap-1.5 whitespace-nowrap transition-colors ${tab===id?'text-stone-900':'text-stone-500 hover:text-stone-700'}`}>
+        <nav className="max-w-4xl mx-auto px-4 flex gap-1 overflow-x-auto pb-2 pt-3">
+          {NAV_ITEMS.map(({id,l,I,pub})=>(
+            <button key={id} onClick={()=>goTo(id,pub)}
+              className={`relative px-4 py-2 rounded-full text-sm font-medium flex items-center gap-1.5 whitespace-nowrap transition-all duration-300 ${tab===id?'text-white':'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}
+              style={tab===id?{background:'linear-gradient(135deg,#C65D3C,#A6472B)',boxShadow:'0 3px 10px rgba(198,93,60,0.3)'}:{}}>
               <I size={15}/>{l}
-              {tab===id&&<span className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full" style={{background:'#C65D3C'}}/>}
+              {!pub && !isAdmin && <Lock size={11} className="opacity-70"/>}
             </button>
           ))}
         </nav>
       </header>
 
       {/* ── MAIN ── */}
-      <main className="max-w-4xl mx-auto px-4 py-5 pb-24">
+      <main className="max-w-4xl mx-auto px-4 py-5 pb-24 md:ml-64 md:pl-4">
         {tab==='pedidos' &&
           <TabPedidos kits={kits} pedidos={pedidos} setPedidos={setPeds}
             precos={precos} totais={totais} isAdmin={isAdmin}/>}
+        {tab==='pagamento' && isAdmin &&
+          <TabPagamento kits={kits} pedidos={pedidos} setPedidos={setPeds} precos={precos}/>}
         {tab==='custos' && isAdmin &&
           <TabCustos kits={kits} custosKits={custosKits}
             prem={prem} setPrem={setPrem}
@@ -280,12 +336,13 @@ export default function App() {
             precos={precos} setPrecos={setPrc}
             pedidos={pedidos}
             onAdd={addKit} onUpdate={updateKit} onRemove={removeKit} onMove={moveKit}
-            onReorder={reorderKit} onToggleAtivo={toggleKitAtivo}
-            onChangePwd={changePwd}/>}
+            onReorder={reorderKit} onToggleAtivo={toggleKitAtivo}/>}
         {tab==='resumo' && isAdmin &&
-          <TabResumo custosKits={custosKits} pedidos={pedidos} precos={precos} kits={kits}/>}
+          <TabResumo custosKits={custosKits} pedidos={pedidos} precos={precos} kits={kits} onExportar={()=>setTab('exportar')}/>}
         {tab==='exportar' && isAdmin &&
           <ErrorBoundary><TabExportar pedidos={pedidos} kits={kits} precos={precos}/></ErrorBoundary>}
+        {tab==='config' && isAdmin &&
+          <TabConfig onChangePwd={changePwd} onLock={lock}/>}
       </main>
 
       {authOpen&&<ModalAuth hasHash={!!pwdHash} onClose={()=>setAuth(false)} onSubmit={unlock}/>}
@@ -301,12 +358,13 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
   const [searchMode,  setSM]  = useState(false);
   const [searchQuery, setSQ]  = useState('');
   const [novoCli,     setNC]  = useState('');
+  const [novoTel,     setNT]  = useState('');
   const [novoPag,     setNP]  = useState('integral');
   const [novoItens,   setNI]  = useState([{kitId:'',qtd:1,preco:null}]);
   const [novoVP,      setNVP] = useState('');   // valor pago customizado
-  const [form,        setFm]  = useState(false);
+  const [novoObs,     setNO]  = useState('');
+  const [form,        setFm]  = useState(true);
   const [filtro,      setFi]  = useState('todos');
-  const [verCob,      setVC]  = useState(false);
   const [openKit,     setOK]  = useState(null); // qual seletor de kit está aberto
   const [editando,    setEd]  = useState(null); // pedido sendo editado
 
@@ -325,8 +383,8 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
     const validos = novoItens.filter(it=>it.kitId&&+it.qtd>0).map(it=>({...it,preco:it.preco!=null&&it.preco!==''?+it.preco:null}));
     const id = pedidos.length ? Math.max(...pedidos.map(p=>p.id))+1 : 1;
     const vp = novoVP!==''&&+novoVP>=0 ? +novoVP : null;
-    setPedidos(p=>[...p,{id, cliente:novoCli.trim(), itens:validos, pagamento:novoPag, valorPago:vp, data:new Date().toISOString()}]);
-    setNC(''); setNI([{kitId:'',qtd:1}]); setNP('integral'); setNVP(''); setFm(false); setOK(null);
+    setPedidos(p=>[...p,{id, cliente:novoCli.trim(), telefone:novoTel.trim()||null, itens:validos, pagamento:novoPag, valorPago:vp, obs:novoObs.trim()||null, data:new Date().toISOString()}]);
+    setNC(''); setNT(''); setNI([{kitId:'',qtd:1}]); setNP('integral'); setNVP(''); setNO(''); setOK(null);
   };
   const del   = id => setPedidos(p=>p.filter(x=>x.id!==id));
   const setPg = (id,v) => setPedidos(p=>p.map(x=>x.id===id?{...x,pagamento:v,valorPago:null}:x));
@@ -371,106 +429,14 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
 
   return (
     <div className="space-y-3">
-
-      {/* ── BANNER cobranças (admin, fora da view cobranças) ── */}
-      {!verCob && !searchMode && cobrancas.length>0 && (
-        <button onClick={()=>{setVC(true);setFm(false);}}
-          className="w-full rounded-2xl p-4 flex items-center justify-between border-2 hover:opacity-90 transition-all ai"
-          style={{borderColor:'#C65D3C',background:'#FFF8F5'}}>
-          <div className="text-left">
-            <div className="font-semibold text-stone-900">
-              💰 {cobrancas.length} cobrança{cobrancas.length!==1?'s':''} pendente{cobrancas.length!==1?'s':''}
-            </div>
-            <div className="text-sm text-stone-500 mt-0.5">{brl(totalCob)} a receber</div>
-          </div>
-          <ChevronRight size={18} className="text-stone-400 flex-shrink-0"/>
-        </button>
-      )}
-
-      {/* ════════ VIEW COBRANÇAS ════════ */}
-      {verCob ? (
-        <div className="ai space-y-3">
-          <div className="flex items-center gap-3">
-            <button onClick={()=>setVC(false)}
-              className="w-9 h-9 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:bg-stone-50 flex-shrink-0">
-              <ChevronLeft size={16}/>
-            </button>
-            <div>
-              <div className="font-semibold text-stone-900">Cobranças pendentes</div>
-              <div className="text-xs text-stone-500">{cobrancas.length} pedido{cobrancas.length!==1?'s':''} · {brl(totalCob)} a receber</div>
-            </div>
-          </div>
-          {cobrancas.length===0 ? (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-stone-100 mb-3">
-                <Check size={22} className="text-stone-400"/>
-              </div>
-              <p className="text-stone-400 text-sm">Nenhuma cobrança pendente</p>
-            </div>
-          ) : cobrancas.map(p=>{
-            const tot=pedTotal(p,precos);
-            const rec=recebido(p,precos);
-            const deve=tot-rec;
-            const itens=getItens(p);
-            return (
-              <div key={p.id} className="bg-white rounded-2xl border-2 p-4" style={{borderColor:'#F5D4C8'}}>
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center fd text-sm font-semibold text-white" style={{background:'#2A2420'}}>
-                    #{p.id}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-stone-900">{p.cliente}</div>
-                    <div className="text-[11px] text-stone-400">{new Date(p.data).toLocaleDateString('pt-BR')}</div>
-                    <div className="mt-1 space-y-0.5">
-                      {itens.map((it,i)=>{
-                        const kit=kits.find(k=>k.id===it.kitId);
-                        return <div key={i} className="text-xs text-stone-500 flex justify-between"><span className="truncate mr-2">{kit?.nome||'—'}</span><span>{it.qtd}un · {brl((precos[it.kitId]||0)*it.qtd)}</span></div>;
-                      })}
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-[10px] text-stone-400">Total</div>
-                    <div className="fd text-base font-semibold text-stone-900">{brl(tot)}</div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div className="rounded-xl p-2.5 text-center" style={{background:'#E1EFDB'}}>
-                    <div className="text-[10px] uppercase tracking-wider" style={{color:'#3F6E3A'}}>Já recebido</div>
-                    <div className="fd text-base font-semibold" style={{color:'#3F6E3A'}}>{brl(rec)}</div>
-                  </div>
-                  <div className="rounded-xl p-2.5 text-center" style={{background:'#FCE8E6'}}>
-                    <div className="text-[10px] uppercase tracking-wider" style={{color:'#B5302B'}}>A cobrar</div>
-                    <div className="fd text-base font-semibold" style={{color:'#B5302B'}}>{brl(deve)}</div>
-                  </div>
-                </div>
-                <button onClick={()=>setPg(p.id,'integral')}
-                  className="w-full rounded-xl py-2.5 text-sm font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90"
-                  style={{background:'#3F6E3A'}}>
-                  <Check size={15}/> Marcar como Pago total
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-      ) : ( /* ════════ VIEW NORMAL ════════ */
       <div className="space-y-3">
 
-        {/* Seletor de data ou busca */}
+        {/* Buscar pedido de um cliente (edição/exclusão pontual) */}
         {!searchMode ? (
-          <div className="flex items-center gap-2">
-            <button onClick={prevDay} className="w-9 h-9 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:bg-stone-50 flex-shrink-0"><ChevronLeft size={16}/></button>
-            <div className="flex-1 relative">
-              <input type="date" value={viewDate} onChange={e=>setVD(e.target.value)}
-                className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2.5 text-stone-900 text-sm focus:outline-none focus:border-stone-400"/>
-              {isHoje&&<span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{background:'#E1EFDB',color:'#3F6E3A'}}>Hoje</span>}
-            </div>
-            {!isHoje&&<button onClick={()=>setVD(hoje())} className="px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-xs font-medium text-stone-600 hover:bg-stone-50 flex-shrink-0">Hoje</button>}
-            <button onClick={()=>{setSM(true);setSQ('');setFm(false);}} className="w-9 h-9 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:bg-stone-50 flex-shrink-0" title="Buscar cliente">
-              <Search size={16}/>
-            </button>
-            <button onClick={nextDay} className="w-9 h-9 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-500 hover:bg-stone-50 flex-shrink-0"><ChevronRight size={16}/></button>
-          </div>
+          <button onClick={()=>{setSM(true);setSQ('');}}
+            className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-stone-200 text-sm text-stone-500 hover:bg-stone-50 transition-colors">
+            <Search size={15}/> Buscar pedido por cliente…
+          </button>
         ) : (
           <div className="flex items-center gap-2 ai">
             <div className="flex-1 relative">
@@ -482,32 +448,32 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
           </div>
         )}
 
-        {/* Cards admin */}
-        {isAdmin && !searchMode && (
-          <div className="grid grid-cols-3 gap-2">
-            <MiniCard l="Pedidos"   v={lista.length} num/>
-            <MiniCard l="Recebido"  v={brl(viewTotals.rec)}  cor="#3F6E3A"/>
-            <MiniCard l="A receber" v={brl(viewTotals.pend)} cor={viewTotals.pend>0?'#B5302B':'#78716C'}/>
-          </div>
-        )}
-
-        {/* Formulário novo pedido */}
-        {!form ? (
-          <button onClick={()=>setFm(true)}
-            className="w-full bg-stone-900 text-white rounded-2xl py-4 font-medium flex items-center justify-center gap-2 hover:bg-stone-800 transition-colors">
-            <Plus size={17}/> Novo pedido
-          </button>
-        ) : (
+        {/* Formulário novo pedido — sempre aberto */}
+        {(
           <div className="bg-white rounded-2xl p-5 border border-stone-200/80 ai">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="fd text-lg text-stone-900">Novo pedido</h3>
-              <button onClick={()=>setFm(false)} className="text-stone-400"><X size={19}/></button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{background:'#F5EBE5',color:'#C65D3C'}}>
+                <Plus size={18}/>
+              </div>
+              <div>
+                <h3 className="fd text-lg text-stone-900 leading-tight">Novo pedido</h3>
+                <p className="text-xs text-stone-500 mt-0.5">Preencha os dados para adicionar um novo pedido</p>
+              </div>
             </div>
             <div className="space-y-4">
-              <Fld l="Cliente">
-                <input type="text" value={novoCli} onChange={e=>setNC(e.target.value)} placeholder="Nome do cliente"
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400"/>
-              </Fld>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <Fld l="Cliente">
+                    <input type="text" value={novoCli} onChange={e=>setNC(e.target.value)} placeholder="Nome do cliente"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400"/>
+                  </Fld>
+                </div>
+                <Fld l="WhatsApp">
+                  <input type="tel" value={novoTel} onChange={e=>setNT(e.target.value)} placeholder="(21) 9....."
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-3 text-stone-900 text-sm focus:outline-none focus:border-stone-400"/>
+                </Fld>
+              </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs uppercase tracking-wider text-stone-500">Itens do pedido</label>
@@ -602,6 +568,10 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
                 </div>
                 <p className="text-[11px] text-stone-400 mt-1">Deixe em branco para usar o percentual do status acima. Preencha se o valor for diferente.</p>
               </Fld>
+              <Fld l="Observações (opcional)">
+                <textarea value={novoObs} onChange={e=>setNO(e.target.value)} placeholder="Cor, tema, prazo combinado..."
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 text-sm focus:outline-none focus:border-stone-400 resize-none" rows={2}/>
+              </Fld>
               {novoTotal>0&&(
                 <div className="bg-stone-50 rounded-xl px-4 py-3 space-y-1.5">
                   <div className="flex justify-between items-center">
@@ -629,48 +599,18 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
           </div>
         )}
 
-        {/* Filtros */}
-        {lista.length>0 && !searchMode && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {[['todos','Todos',cnt.todos],['pendente','Pendentes',cnt.pendente],['meio','50% pagos',cnt.meio],['integral','Pagos',cnt.integral]]
-              .map(([id,l,c])=>(
-                <button key={id} onClick={()=>setFi(id)}
-                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-all ${filtro===id?'bg-stone-900 text-white border-transparent':'bg-white text-stone-600 border-stone-200'}`}>
-                  {l} <span className={filtro===id?'opacity-50':'text-stone-400'}>({c})</span>
-                </button>
-              ))}
-          </div>
-        )}
-
-        {/* Botão imprimir etiquetas */}
-        {lista.length>0 && !searchMode && (
-          <button onClick={()=>imprimirEtiquetas(lista, kits)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 transition-colors">
-            🖨️ Imprimir etiquetas do dia ({lista.length})
-          </button>
-        )}
-        {lista.length>0 && searchMode && searchQuery && (
-          <button onClick={()=>imprimirEtiquetas(lista, kits)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 transition-colors">
-            🖨️ Imprimir etiquetas da busca ({lista.length})
-          </button>
-        )}
-
-        {/* Lista */}
-        {lista.length===0 ? (
-          <div className="text-center py-14">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-stone-100 mb-3">
-              {searchMode ? <Search size={22} className="text-stone-400"/> : <Package size={22} className="text-stone-400"/>}
-            </div>
-            <p className="text-stone-400 text-sm">
-              {searchMode && searchQuery ? `Nenhum pedido para "${searchQuery}"` :
-               searchMode ? 'Digite o nome do cliente para buscar' :
-               `Nenhum pedido em ${new Date(viewDate+'T12:00:00').toLocaleDateString('pt-BR')}`}
-            </p>
-          </div>
-        ) : (
+        {/* Busca de cliente — não mostra mais o "pedido do dia" (isso mora em Pedidos realizados) */}
+        {searchMode && (searchQuery ? (
           <div className="space-y-2">
-            {searchMode && searchQuery && <p className="text-xs text-stone-500 px-1">{lista.length} pedido{lista.length!==1?'s':''} encontrado{lista.length!==1?'s':''}</p>}
+            <p className="text-xs text-stone-500 px-1">{lista.length} pedido{lista.length!==1?'s':''} encontrado{lista.length!==1?'s':''}</p>
+            {lista.length===0 && (
+              <div className="text-center py-14">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-stone-100 mb-3">
+                  <Search size={22} className="text-stone-400"/>
+                </div>
+                <p className="text-stone-400 text-sm">Nenhum pedido para "{searchQuery}"</p>
+              </div>
+            )}
             {lista.map(p=>{
               const itens=getItens(p);
               const tot=pedTotal(p,precos);
@@ -678,68 +618,55 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
               const deve=tot-rec;
               const pk=p.pagamento||'integral';
               const temVP=p.valorPago!=null;
+              const pkColor = pk==='pendente'?'#B5302B':pk==='meio'?'#8B6B1A':'#3F6E3A';
               return (
-                <div key={p.id} className="bg-white rounded-2xl border border-stone-200/80 p-4">
+                <div key={p.id} className="bg-white rounded-2xl p-4 transition-all duration-300 hover:-translate-y-0.5"
+                  style={{border:'0.5px solid rgba(28,25,23,0.08)',borderLeft:`3px solid ${pkColor}`,boxShadow:'0 2px 8px rgba(28,25,23,0.03)'}}>
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center fd text-sm font-semibold text-white" style={{background:'#2A2420'}}>#{p.id}</div>
+                    <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center fd text-sm font-semibold text-white"
+                      style={{background:'linear-gradient(135deg,#2A2420,#1C1917)'}}>
+                      {(p.cliente||'?').trim().charAt(0).toUpperCase()}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <div className="font-medium text-stone-900">{p.cliente}</div>
                         {searchMode&&<div className="text-[10px] text-stone-400">{new Date(p.data).toLocaleDateString('pt-BR')}</div>}
                       </div>
+                      {p.telefone&&(
+                        <a href={`https://wa.me/55${p.telefone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"
+                          className="text-xs text-stone-400 hover:text-green-600 transition-colors inline-block mt-0.5">
+                          📱 {p.telefone}
+                        </a>
+                      )}
                       <div className="mt-1 space-y-0.5">
                         {itens.map((it,i)=>{
                           const kit=kits.find(k=>k.id===it.kitId);
                           const pr=precos[it.kitId]||0;
-                          return <div key={i} className="flex items-center justify-between text-xs text-stone-500"><span className="truncate mr-2">{kit?.nome||<em>kit removido</em>}</span><span className="flex-shrink-0 tabular-nums">{it.qtd}un × {brl(pr)}</span></div>;
+                          return <div key={i} className="flex items-center justify-between text-xs text-stone-500"><span className="truncate mr-2">{kit?.nome||<em>kit removido</em>}</span><span className="flex-shrink-0 tabular-nums">{it.qtd}un</span></div>;
                         })}
                       </div>
+                      {p.obs&&<div className="mt-1 text-xs text-stone-500 italic truncate">"{p.obs}"</div>}
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="fd text-base text-stone-900">{brl(tot)}</div>
-                      {itens.length>1&&<div className="text-[10px] text-stone-400">{itens.length} itens</div>}
+                      <div className="text-[10px] text-stone-400">Total</div>
+                      <div className="fd text-base font-semibold text-stone-900">{itens.reduce((s,it)=>s+(it.qtd||0),0)} un</div>
                     </div>
-                    <button onClick={()=>{setEd(p);setFm(false);setSM(false);}} className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-stone-300 hover:text-stone-700 hover:bg-stone-100 transition-colors" title="Editar pedido"><Pencil size={14}/></button>
+                    <button onClick={()=>{setEd(p);setSM(false);}} className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-stone-300 hover:text-stone-700 hover:bg-stone-100 transition-colors" title="Editar pedido"><Pencil size={14}/></button>
                   <button onClick={()=>del(p.id)} className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-stone-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Remover pedido"><Trash2 size={15}/></button>
-                  </div>
-
-                  {/* Pagamento */}
-                  <div className="mt-3 pt-3 border-t border-stone-100">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-[11px] text-stone-500 uppercase tracking-wider">Pagamento</span>
-                      <div className="flex gap-1">
-                        {PAG_KEYS.map(k=>{ const s=PAG_CFG[k]; const sel=pk===k&&!temVP; return (
-                          <button key={k} onClick={()=>setPg(p.id,k)}
-                            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${sel?'shadow-sm':'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}
-                            style={sel?{background:s.bg,color:s.color}:{}}>{s.label}</button>
-                        ); })}
-                      </div>
-                    </div>
-                    {/* Valor pago customizado */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-stone-400 flex-shrink-0">Valor recebido:</span>
-                      <div className="relative flex-1">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs">R$</span>
-                        <input type="number" inputMode="decimal" step="0.01"
-                          value={p.valorPago!=null ? p.valorPago : ''}
-                          onChange={e=>setVP(p.id, e.target.value===''?null:e.target.value)}
-                          placeholder={brl(tot*(PAG_CFG[pk]?.factor??1)).replace('R$','').trim()}
-                          className="w-full bg-stone-50 border border-stone-200 rounded-lg pl-7 pr-3 py-1.5 text-xs text-stone-900 focus:outline-none focus:border-stone-400 tabular-nums"/>
-                      </div>
-                      <div className="text-right flex-shrink-0 min-w-[80px]">
-                        <div className="text-[10px] text-stone-400">A receber</div>
-                        <div className="text-sm font-semibold tabular-nums" style={{color:deve>0?'#B5302B':'#3F6E3A'}}>{brl(deve)}</div>
-                      </div>
-                    </div>
-                    {temVP&&<p className="text-[10px] text-stone-400 mt-1">Valor personalizado · <button onClick={()=>setVP(p.id,null)} className="underline hover:text-stone-600">Limpar</button></p>}
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
+        ) : (
+          <div className="text-center py-14">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-stone-100 mb-3">
+              <Search size={22} className="text-stone-400"/>
+            </div>
+            <p className="text-stone-400 text-sm">Digite o nome do cliente para buscar</p>
+          </div>
+        ))}
       </div>
-      )} {/* fim verCob ternary */}
 
       {/* Modal de edição de pedido */}
       {editando && (
@@ -760,9 +687,11 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
 // ─────────────────────────────────────────────
 function ModalEditarPedido({pedido, kits, precos, onSave, onClose}) {
   const [cliente, setC]  = useState(pedido.cliente || '');
+  const [telefone,setTe] = useState(pedido.telefone || '');
   const [itens,   setI]  = useState(getItens(pedido).length ? getItens(pedido) : [{kitId:'',qtd:1}]);
   const [pag,     setP]  = useState(pedido.pagamento || 'integral');
   const [vp,      setV]  = useState(pedido.valorPago != null ? String(pedido.valorPago) : '');
+  const [obs,     setOb] = useState(pedido.obs || '');
   const [err,     setEr] = useState('');
   const [openKit, setOK] = useState(null);
 
@@ -779,9 +708,11 @@ function ModalEditarPedido({pedido, kits, precos, onSave, onClose}) {
     const validos = itens.filter(it=>it.kitId&&+it.qtd>0);
     onSave({
       cliente:   cliente.trim(),
+      telefone:  telefone.trim()||null,
       itens:     validos,
       pagamento: pag,
       valorPago: vp!==''&&+vp>=0 ? +vp : null,
+      obs:       obs.trim()||null,
     });
   };
 
@@ -806,11 +737,20 @@ function ModalEditarPedido({pedido, kits, precos, onSave, onClose}) {
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
 
           {/* Cliente */}
-          <Fld l="Cliente">
-            <input type="text" value={cliente} onChange={e=>setC(e.target.value)}
-              placeholder="Nome do cliente"
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400"/>
-          </Fld>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2">
+              <Fld l="Cliente">
+                <input type="text" value={cliente} onChange={e=>setC(e.target.value)}
+                  placeholder="Nome do cliente"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400"/>
+              </Fld>
+            </div>
+            <Fld l="WhatsApp">
+              <input type="tel" value={telefone} onChange={e=>setTe(e.target.value)}
+                placeholder="(21) 9....."
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-3 text-stone-900 text-sm focus:outline-none focus:border-stone-400"/>
+            </Fld>
+          </div>
 
           {/* Itens */}
           <div>
@@ -913,6 +853,12 @@ function ModalEditarPedido({pedido, kits, precos, onSave, onClose}) {
             </p>
           </Fld>
 
+          {/* Observações */}
+          <Fld l="Observações (opcional)">
+            <textarea value={obs} onChange={e=>setOb(e.target.value)} placeholder="Cor, tema, prazo combinado..."
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 text-sm focus:outline-none focus:border-stone-400 resize-none" rows={2}/>
+          </Fld>
+
           {/* Resumo de valores */}
           {total>0&&(
             <div className="bg-stone-50 rounded-xl px-4 py-3 space-y-1.5">
@@ -953,9 +899,234 @@ function ModalEditarPedido({pedido, kits, precos, onSave, onClose}) {
   );
 }
 
-function TabCustos({kits,custosKits,prem,setPrem,consumo,setCons,precos,setPrecos,pedidos,onAdd,onUpdate,onRemove,onMove,onReorder,onToggleAtivo,onChangePwd}) {
+
+// ─────────────────────────────────────────────
+// TAB PEDIDOS REALIZADOS (admin) — sem valores, com período/status/impressão
+// ─────────────────────────────────────────────
+function TabPagamento({kits,pedidos,setPedidos,precos}) {
+  const setPg = (id,v) => setPedidos(p=>p.map(x=>x.id===id?{...x,pagamento:v,valorPago:null}:x));
+
+  const [tipo, setTipo] = useState('diario');
+  const [dia,  setDia]  = useState(hoje());
+  const [mes,  setMes]  = useState(mesHj());
+  const [sem,  setSem]  = useState(hoje());
+  const [cIni, setCI]   = useState(hoje());
+  const [cFim, setCF]   = useState(hoje());
+  const [filtro, setFi] = useState('todos');
+
+  const pedPeriodo = useMemo(()=>{
+    const sorted=[...pedidos].sort((a,b)=>new Date(b.data)-new Date(a.data));
+    if(tipo==='todos')   return sorted;
+    if(tipo==='diario')  return sorted.filter(p=>localDate(p.data)===dia);
+    if(tipo==='mensal')  return sorted.filter(p=>localMonth(p.data)===mes);
+    if(tipo==='semanal'){const{s,e}=semanaRange(sem);return sorted.filter(p=>{const d=new Date(p.data);return d>=s&&d<=e;});}
+    if(tipo==='periodo'){const s=new Date(cIni+'T00:00:00'),e=new Date(cFim+'T23:59:59');return sorted.filter(p=>{const d=new Date(p.data);return d>=s&&d<=e;});}
+    return sorted;
+  },[pedidos,tipo,dia,mes,sem,cIni,cFim]);
+
+  const cnt = useMemo(()=>({
+    todos:    pedPeriodo.length,
+    pendente: pedPeriodo.filter(p=>(p.pagamento||'integral')==='pendente').length,
+    meio:     pedPeriodo.filter(p=>p.pagamento==='meio').length,
+    integral: pedPeriodo.filter(p=>(p.pagamento||'integral')==='integral').length,
+  }),[pedPeriodo]);
+
+  const lista = useMemo(()=>
+    filtro==='todos' ? pedPeriodo : pedPeriodo.filter(p=>(p.pagamento||'integral')===filtro)
+  ,[pedPeriodo,filtro]);
+
+  const labelPeriodo = useMemo(()=>{
+    const fmt = d => new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+    if(tipo==='todos')    return 'Todos os pedidos';
+    if(tipo==='diario')   return `Dia ${fmt(dia+'T12:00:00')}`;
+    if(tipo==='semanal'){ const{s,e}=semanaRange(sem); return `Semana ${s.toLocaleDateString('pt-BR')} a ${e.toLocaleDateString('pt-BR')}`; }
+    if(tipo==='mensal'){ const[y,m]=mes.split('-'); const nm=new Date(+y,+m-1,15).toLocaleString('pt-BR',{month:'long'}); return `${nm[0].toUpperCase()+nm.slice(1)} de ${y}`; }
+    if(tipo==='periodo')  return `${fmt(cIni+'T12:00:00')} a ${fmt(cFim+'T12:00:00')}`;
+    return '';
+  },[tipo,dia,mes,sem,cIni,cFim]);
+
+  return (
+    <div className="space-y-4">
+
+      {/* ── Seletor de período ── */}
+      <div className="bg-white rounded-2xl border border-stone-200/80 p-4 space-y-3">
+        <div className="flex gap-2 flex-wrap">
+          {[['diario','Diário'],['semanal','Semanal'],['mensal','Mensal'],['periodo','Período'],['todos','Todos']].map(([id,l])=>(
+            <button key={id} onClick={()=>setTipo(id)}
+              className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${tipo===id?'bg-stone-900 text-white border-transparent':'bg-stone-50 text-stone-600 border-stone-200 hover:border-stone-400'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+        {tipo==='diario'&&(
+          <input type="date" value={dia} onChange={e=>setDia(e.target.value)}
+            className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-stone-400"/>
+        )}
+        {tipo==='mensal'&&(
+          <input type="month" value={mes} onChange={e=>setMes(e.target.value)}
+            className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-stone-400"/>
+        )}
+        {tipo==='semanal'&&(
+          <div>
+            <input type="date" value={sem} onChange={e=>setSem(e.target.value)}
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-stone-400"/>
+            {sem&&(()=>{const{s,e}=semanaRange(sem);return <p className="text-xs text-stone-500 mt-1">Semana: <b>{s.toLocaleDateString('pt-BR')} a {e.toLocaleDateString('pt-BR')}</b></p>;})()}
+          </div>
+        )}
+        {tipo==='periodo'&&(
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={cIni} onChange={e=>setCI(e.target.value)}
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-stone-400"/>
+            <input type="date" value={cFim} onChange={e=>setCF(e.target.value)}
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-stone-400"/>
+          </div>
+        )}
+      </div>
+
+      {/* ── Total de pedidos realizados (sem valores) ── */}
+      <div className="rounded-2xl p-4 flex items-center justify-between" style={{background:'linear-gradient(135deg,#FFF3EC,#FFE4D6)',boxShadow:'0 4px 16px rgba(198,93,60,0.12)'}}>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider" style={{color:'#A6472B'}}>Pedidos realizados</div>
+          <div className="fd text-2xl font-semibold mt-1" style={{color:'#A6472B'}}>{pedPeriodo.length}</div>
+        </div>
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{background:'linear-gradient(135deg,#C65D3C,#A6472B)',boxShadow:'0 3px 10px rgba(198,93,60,0.3)'}}>
+          <Package size={20} className="text-white"/>
+        </div>
+      </div>
+
+      {/* ── Filtro de status ── */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {[['todos','Todos',cnt.todos],['pendente','Pendentes',cnt.pendente],['meio','50% pagos',cnt.meio],['integral','Pagos',cnt.integral]]
+          .map(([id,l,c])=>(
+            <button key={id} onClick={()=>setFi(id)}
+              className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-all ${filtro===id?'bg-stone-900 text-white border-transparent':'bg-white text-stone-600 border-stone-200'}`}>
+              {l} <span className={filtro===id?'opacity-50':'text-stone-400'}>({c})</span>
+            </button>
+          ))}
+      </div>
+
+      {/* ── Impressão ── */}
+      {lista.length>0 && (
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={()=>imprimirEtiquetas(lista, kits)}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 transition-colors">
+            🖨️ Etiquetas
+          </button>
+          <button onClick={()=>imprimirRelatorioPedidos(lista, kits, labelPeriodo)}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
+            style={{background:'#2A2420'}}>
+            <FileSpreadsheet size={15}/> Relatório completo
+          </button>
+        </div>
+      )}
+
+      {/* ── Lista, sem valores ── */}
+      {lista.length===0 ? (
+        <div className="text-center py-14">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-stone-100 mb-3">
+            <Package size={22} className="text-stone-400"/>
+          </div>
+          <p className="text-stone-400 text-sm">Nenhum pedido neste período</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {lista.map(p=>{
+            const itens=getItens(p);
+            const pk=p.pagamento||'integral';
+            const pkColor = pk==='pendente'?'#B5302B':pk==='meio'?'#8B6B1A':'#3F6E3A';
+            return (
+              <div key={p.id} className="bg-white rounded-2xl p-4"
+                style={{border:'0.5px solid rgba(28,25,23,0.08)',borderLeft:`3px solid ${pkColor}`,boxShadow:'0 2px 8px rgba(28,25,23,0.03)'}}>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center fd text-sm font-semibold text-white" style={{background:'linear-gradient(135deg,#2A2420,#1C1917)'}}>
+                    {(p.cliente||'?').trim().charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-stone-900">{p.cliente}</div>
+                    <div className="text-[11px] text-stone-400">{new Date(p.data).toLocaleDateString('pt-BR')}</div>
+                    <div className="mt-1 space-y-0.5">
+                      {itens.map((it,i)=>{
+                        const kit=kits.find(k=>k.id===it.kitId);
+                        return <div key={i} className="text-xs text-stone-500 flex justify-between"><span className="truncate mr-2">{kit?.nome||'—'}</span><span>{it.qtd}un</span></div>;
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-stone-100">
+                  {pk!=='integral' ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full" style={{background:PAG_CFG[pk].bg,color:PAG_CFG[pk].color}}>
+                        <AlertCircle size={12}/> Pagamento pendente
+                      </span>
+                      <button onClick={()=>setPg(p.id,'integral')}
+                        className="rounded-full px-3.5 py-1.5 text-xs font-semibold text-white flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+                        style={{background:'#3F6E3A'}}>
+                        <Check size={13}/> Entrega concluída
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full w-fit" style={{background:'#E1EFDB',color:'#3F6E3A'}}>
+                      <Check size={12}/> Entrega concluída
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// TAB CONFIGURAÇÃO (admin)
+// ─────────────────────────────────────────────
+function TabConfig({onChangePwd,onLock}) {
+  const [chPwd, setChPwd] = useState(false);
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl border border-stone-200/80 p-5">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'#F5EBE5',color:'#C65D3C'}}>
+            <KeyRound size={18}/>
+          </div>
+          <div>
+            <div className="font-semibold text-stone-900">Senha de administrador</div>
+            <div className="text-xs text-stone-500">Usada para acessar as áreas restritas</div>
+          </div>
+        </div>
+        <button onClick={()=>setChPwd(true)}
+          className="mt-4 w-full rounded-xl py-2.5 text-sm font-medium border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">
+          Trocar senha
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-stone-200/80 p-5">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'#F5EBE5',color:'#C65D3C'}}>
+            <Lock size={18}/>
+          </div>
+          <div>
+            <div className="font-semibold text-stone-900">Sessão administrativa</div>
+            <div className="text-xs text-stone-500">Bloqueia o acesso às áreas restritas neste dispositivo</div>
+          </div>
+        </div>
+        <button onClick={onLock}
+          className="mt-4 w-full rounded-xl py-2.5 text-sm font-medium text-white flex items-center justify-center gap-2"
+          style={{background:'#2A2420'}}>
+          <Lock size={15}/> Bloquear agora
+        </button>
+      </div>
+
+      {chPwd&&<ModalTrocarSenha onClose={()=>setChPwd(false)} onSubmit={onChangePwd}/>}
+    </div>
+  );
+}
+
+function TabCustos({kits,custosKits,prem,setPrem,consumo,setCons,precos,setPrecos,pedidos,onAdd,onUpdate,onRemove,onMove,onReorder,onToggleAtivo}) {
   const [sec,   setSec]  = useState('kits');
-  const [chPwd, setChPwd]= useState(false);
 
   const SECS=[{id:'kits',l:'Custo p/ Kit'},{id:'itens',l:'✦ Gerenciar Itens'},{id:'insumos',l:'Insumos'},{id:'consumo',l:'Consumo Extra'}];
 
@@ -1063,12 +1234,6 @@ function TabCustos({kits,custosKits,prem,setPrem,consumo,setCons,precos,setPreco
         </div>
       )}
 
-      <div className="mt-6 text-center">
-        <button onClick={()=>setChPwd(true)} className="text-xs text-stone-400 hover:text-stone-600 hover:underline underline-offset-2">
-          Trocar senha de administrador
-        </button>
-      </div>
-      {chPwd&&<ModalTrocarSenha onClose={()=>setChPwd(false)} onSubmit={onChangePwd}/>}
     </div>
   );
 }
@@ -1325,7 +1490,7 @@ function ModalKit({title,ini,onSave,onClose}) {
 // ─────────────────────────────────────────────
 // TAB RESUMO (admin)
 // ─────────────────────────────────────────────
-function TabResumo({custosKits, pedidos, precos, kits}) {
+function TabResumo({custosKits, pedidos, precos, kits, onExportar}) {
 
   // ── Filtro de período único — controla TUDO na aba ──
   const [tipo, setTipo] = useState('diario');
@@ -1408,6 +1573,24 @@ function TabResumo({custosKits, pedidos, precos, kits}) {
 
   return (
     <div className="space-y-4">
+
+      {onExportar && (
+        <button onClick={onExportar}
+          className="w-full rounded-2xl p-4 flex items-center justify-between transition-all duration-300 hover:-translate-y-0.5"
+          style={{background:'linear-gradient(135deg,#EEF2FF,#E0E7FF)'}}>
+          <div className="flex items-center gap-3 text-left">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{background:'linear-gradient(135deg,#4F46E5,#4338CA)',boxShadow:'0 3px 10px rgba(79,70,229,0.3)'}}>
+              <FileSpreadsheet size={18} className="text-white"/>
+            </div>
+            <div>
+              <div className="font-semibold text-stone-900">Exportar relatório</div>
+              <div className="text-xs text-stone-500 mt-0.5">Gerar planilha Excel do período</div>
+            </div>
+          </div>
+          <ChevronRight size={18} style={{color:'#4F46E5'}} className="flex-shrink-0"/>
+        </button>
+      )}
 
       {/* ── Seletor de período (controla tudo) ── */}
       <div className="bg-white rounded-2xl border border-stone-200/80 p-4 space-y-3">
@@ -2185,6 +2368,78 @@ function imprimirEtiquetas(lista, kits) {
 }
 
 // ─────────────────────────────────────────────
+// RELATÓRIO COMPLETO DE PEDIDOS (impressão) — sem valores
+// ─────────────────────────────────────────────
+function imprimirRelatorioPedidos(lista, kits, labelPeriodo) {
+  if (!lista.length) return;
+  const PAG_LABEL = {pendente:'Pendente', meio:'50% pago', integral:'Entrega concluída'};
+
+  const linhas = [...lista].sort((a,b)=>new Date(a.data)-new Date(b.data)).map((p,i) => {
+    const itens = getItens(p);
+    const dataFmt = new Date(p.data).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'});
+    const itensList = itens.map(it => {
+      const kit = kits.find(k => k.id === it.kitId);
+      return `${kit?.nome || '—'} (${it.qtd}un)`;
+    }).join(', ');
+    const pag = PAG_LABEL[p.pagamento||'integral'];
+    const pagClass = (p.pagamento||'integral')==='integral' ? 'ok' : 'pend';
+    return `
+    <tr>
+      <td>${i+1}</td>
+      <td>${dataFmt}</td>
+      <td class="cli">${p.cliente}${p.telefone?`<br><span class="tel">${p.telefone}</span>`:''}</td>
+      <td>${itensList}</td>
+      <td>${p.obs || '—'}</td>
+      <td><span class="pag ${pagClass}">${pag}</span></td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Relatório de Pedidos — Sonho dos Painéis</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #fff; padding: 16px; color: #1c1917; }
+  h1 { font-size: 16px; margin-bottom: 2px; }
+  p.sub { font-size: 11px; color: #666; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { text-align: left; background: #f5f0ea; padding: 6px 8px; border-bottom: 2px solid #C65D3C; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: #444; }
+  td { padding: 6px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+  td.cli { font-weight: bold; }
+  .tel { font-weight: normal; color: #666; font-size: 10px; }
+  .pag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: bold; }
+  .pag.ok   { background: #E1EFDB; color: #3F6E3A; }
+  .pag.pend { background: #FCE8E6; color: #B5302B; }
+  @media print {
+    body { padding: 6px; }
+    @page { margin: 10mm; size: landscape; }
+  }
+</style>
+</head>
+<body>
+<h1>SONHO DOS PAINÉIS — Relatório de pedidos</h1>
+<p class="sub">${labelPeriodo || ''} · ${lista.length} pedido${lista.length!==1?'s':''}</p>
+<table>
+  <thead><tr><th>#</th><th>Data</th><th>Cliente</th><th>Itens</th><th>Observações</th><th>Status</th></tr></thead>
+  <tbody>${linhas}</tbody>
+</table>
+<script>
+  window.onload = function() {
+    setTimeout(function() { window.print(); }, 300);
+  };
+</script>
+</body></html>`;
+
+  const win = window.open('', '_blank', 'width=1000,height=700');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  } else {
+    alert('Permite pop-ups para imprimir o relatório.');
+  }
+}
+
+// ─────────────────────────────────────────────
 // EXPORTAR WORD
 // ─────────────────────────────────────────────
 function exportarWord(pedidos, kits, precos, label) {
@@ -2366,7 +2621,7 @@ function Sel({value,onChange,children}){return <div className="relative"><select
 function NIn({v,f}){return <input type="number" inputMode="decimal" step="0.01" value={v} onChange={e=>f(parseFloat(e.target.value)||0)} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-900 focus:outline-none focus:border-stone-400 tabular-nums"/>;}
 function RInput({v,f}){return <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">R$</span><input type="number" inputMode="decimal" step="0.01" value={v} onChange={e=>f(parseFloat(e.target.value)||0)} className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400 tabular-nums"/></div>;}
 function ErrBox({msg}){return <div className="flex items-center gap-2 text-sm p-3 rounded-xl" style={{background:'#FCE8E6',color:'#B5302B'}}><AlertCircle size={14}/>{msg}</div>;}
-function MiniCard({l,v,num,cor,sm}){return <div className="bg-white rounded-2xl p-3 border border-stone-200/80"><div className="text-[10px] uppercase tracking-wider text-stone-500">{l}</div><div className={`fd mt-0.5 ${sm?'text-lg':'text-xl'} font-semibold`} style={{color:cor||'#1C1917'}}>{v}</div></div>;}
+function MiniCard({l,v,num,cor,sm}){return <div className="rounded-2xl p-3.5 transition-transform duration-300 hover:-translate-y-0.5" style={{background:'linear-gradient(145deg,#FFFFFF,#FBF8F4)',border:'0.5px solid rgba(28,25,23,0.08)',boxShadow:'0 2px 8px rgba(28,25,23,0.04)'}}><div className="text-[10px] uppercase tracking-wider text-stone-500 font-medium">{l}</div><div className={`fd mt-1 ${sm?'text-lg':'text-xl'} font-semibold tabular-nums`} style={{color:cor||'#1C1917'}}>{v}</div></div>;}
 function KCard({l,v,acc}){return <div className={`rounded-xl p-2.5 ${acc?'':'bg-stone-50'}`} style={acc?{background:'#F5EBE5'}:{}}><div className="text-[10px] uppercase tracking-wider text-stone-500">{l}</div><div className={`fd text-base font-semibold ${acc?'':'text-stone-900'}`} style={acc?{color:'#A04A2E'}:{}}>{v}</div></div>;}
 function InCard({t,d,v1,v2,un,warn}){return <div className="bg-white rounded-2xl p-5 border border-stone-200/80"><div className="flex items-start justify-between mb-3"><div><div className="fd text-base text-stone-900">{t}</div><div className="text-xs text-stone-500 mt-0.5">{d}</div></div><div className="text-right"><div className="text-[10px] uppercase tracking-wider text-stone-500">Custo</div><div className="fd text-sm font-semibold text-stone-900 tabular-nums">{un}</div></div></div><div className="grid grid-cols-2 gap-3"><Fld l={v1.l}><NIn v={v1.v} f={v1.f}/></Fld><Fld l={v2.l}><NIn v={v2.v} f={v2.f}/></Fld></div>{warn&&<div className="mt-3 flex gap-2 p-3 rounded-xl text-xs" style={{background:'#FFF8EB',color:'#8B6B1A'}}><AlertCircle size={13} className="flex-shrink-0 mt-0.5"/><span>{warn}</span></div>}</div>;}
 function SimpleInCard({t,d,v,f,un}){return <div className="bg-white rounded-2xl p-5 border border-stone-200/80 flex items-center justify-between gap-4"><div className="flex-1 min-w-0"><div className="fd text-base text-stone-900">{t}</div><div className="text-xs text-stone-500 mt-0.5">{d}</div></div><div className="flex items-center gap-2"><div className="relative w-32"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-sm">R$</span><input type="number" inputMode="decimal" step="0.01" value={v} onChange={e=>f(parseFloat(e.target.value)||0)} className="w-full bg-stone-50 border border-stone-200 rounded-xl pl-9 pr-3 py-2.5 text-stone-900 focus:outline-none focus:border-stone-400 tabular-nums text-right"/></div>{un&&<span className="text-xs text-stone-500 whitespace-nowrap">{un}</span>}</div></div>;}
