@@ -905,6 +905,9 @@ function ModalEditarPedido({pedido, kits, precos, onSave, onClose}) {
 // ─────────────────────────────────────────────
 function TabPagamento({kits,pedidos,setPedidos,precos}) {
   const setPg = (id,v) => setPedidos(p=>p.map(x=>x.id===id?{...x,pagamento:v,valorPago:null}:x));
+  const del   = id => setPedidos(p=>p.filter(x=>x.id!==id));
+  const [editando, setEd] = useState(null);
+  const updatePedido = (id, dados) => { setPedidos(p=>p.map(x=>x.id===id ? {...x,...dados} : x)); setEd(null); };
 
   const [tipo, setTipo] = useState('diario');
   const [dia,  setDia]  = useState(hoje());
@@ -1052,6 +1055,8 @@ function TabPagamento({kits,pedidos,setPedidos,precos}) {
                       })}
                     </div>
                   </div>
+                  <button onClick={()=>setEd(p)} className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-stone-300 hover:text-stone-700 hover:bg-stone-100 transition-colors" title="Editar pedido"><Pencil size={14}/></button>
+                  <button onClick={()=>del(p.id)} className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-stone-300 hover:text-red-500 hover:bg-red-50 transition-colors" title="Remover pedido"><Trash2 size={15}/></button>
                 </div>
                 <div className="mt-3 pt-3 border-t border-stone-100">
                   {pk!=='integral' ? (
@@ -1075,6 +1080,16 @@ function TabPagamento({kits,pedidos,setPedidos,precos}) {
             );
           })}
         </div>
+      )}
+
+      {editando && (
+        <ModalEditarPedido
+          pedido={editando}
+          kits={kits}
+          precos={precos}
+          onSave={(dados)=>updatePedido(editando.id, dados)}
+          onClose={()=>setEd(null)}
+        />
       )}
     </div>
   );
