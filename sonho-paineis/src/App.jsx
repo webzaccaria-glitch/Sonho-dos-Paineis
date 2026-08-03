@@ -274,14 +274,15 @@ export default function App() {
   if(!ready) return <div className="min-h-screen flex items-center justify-center" style={{background:'#FAF7F2'}}><p className="text-stone-400">Carregando…</p></div>;
 
   const NAV_ITEMS=[
-    {id:'pedidos',    l:'Pedidos',       I:Package,       pub:true},
+    {id:'pedidos',    l:'Pedidos',       I:Package,       pub:false},
     {id:'pagamento',  l:'Pedidos realizados', I:ClipboardCheck, pub:false},
     {id:'resumo',     l:'Relatório',     I:TrendingUp,    pub:false},
     {id:'custos',     l:'Estoque',       I:Boxes,         pub:false},
     {id:'config',     l:'Configuração',  I:Settings,      pub:false},
   ];
-  const goTo = (id,pub) => { if(!pub && !isAdmin){ setAuth(true); return; } setTab(id); };
-  const navItems = (operadorLog && !isAdmin) ? NAV_ITEMS.filter(n=>n.pub) : NAV_ITEMS;
+  const authOk = isAdmin || !!operadorLog;
+  const goTo = (id,pub) => { if(!pub && !authOk){ if(id==='pedidos'){ setTab(id); return; } setAuth(true); return; } setTab(id); };
+  const navItems = (operadorLog && !isAdmin) ? NAV_ITEMS.filter(n=>n.pub || n.id==='pedidos') : NAV_ITEMS;
 
   return (
     <div className="min-h-screen" style={{background:'#FAF7F2'}}>
@@ -305,7 +306,7 @@ export default function App() {
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
           {navItems.map(({id,l,I,pub})=>{
             const active = tab===id;
-            const locked = !pub && !isAdmin;
+            const locked = !pub && !authOk;
             return (
               <button key={id} onClick={()=>goTo(id,pub)}
                 className={`w-full relative px-3.5 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition-all duration-300 ${active?'text-white':'text-stone-600 hover:bg-stone-100'}`}
@@ -385,7 +386,7 @@ export default function App() {
               className={`relative px-4 py-2 rounded-full text-sm font-medium flex items-center gap-1.5 whitespace-nowrap transition-all duration-300 ${tab===id?'text-white':'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}
               style={tab===id?{background:'linear-gradient(135deg,#C65D3C,#A6472B)',boxShadow:'0 3px 10px rgba(198,93,60,0.3)'}:{}}>
               <I size={15}/>{l}
-              {!pub && !isAdmin && <Lock size={11} className="opacity-70"/>}
+              {!pub && !authOk && <Lock size={11} className="opacity-70"/>}
             </button>
           ))}
         </nav>
@@ -393,9 +394,10 @@ export default function App() {
 
       {/* ── MAIN ── */}
       <main className="max-w-4xl mx-auto px-4 py-5 pb-24 md:ml-64 md:pl-4">
-        {tab==='pedidos' &&
+        {tab==='pedidos' && (authOk ?
           <TabPedidos kits={kits} pedidos={pedidos} setPedidos={setPeds}
-            precos={precos} totais={totais} isAdmin={isAdmin} operadorNome={operadorLog?.nome||null}/>}
+            precos={precos} totais={totais} isAdmin={isAdmin} operadorNome={operadorLog?.nome||null}/>
+          : <GatePedidos onAdmin={()=>setAuth(true)} onOperador={()=>setOpAuth(true)}/>)}
         {tab==='pagamento' && isAdmin &&
           <TabPagamento kits={kits} pedidos={pedidos} setPedidos={setPeds} precos={precos}/>}
         {tab==='custos' && isAdmin &&
@@ -425,6 +427,32 @@ export default function App() {
 // ─────────────────────────────────────────────
 // TAB PEDIDOS
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// GATE PEDIDOS — bloqueia o cadastro de pedidos sem login
+// ─────────────────────────────────────────────
+function GatePedidos({onAdmin,onOperador}) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center py-20 px-4">
+      <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4" style={{background:'#F5EBE5',color:'#C65D3C'}}>
+        <Lock size={22}/>
+      </div>
+      <h2 className="fd text-xl text-stone-900 mb-1">Acesso necessário</h2>
+      <p className="text-sm text-stone-500 mb-6 max-w-xs">Entre como operador ou administrador para lançar e visualizar pedidos.</p>
+      <div className="w-full max-w-xs space-y-2">
+        <button onClick={onOperador}
+          className="w-full text-white rounded-xl py-3 font-medium flex items-center justify-center gap-2"
+          style={{background:'#C65D3C'}}>
+          <Users size={16}/> Entrar como operador
+        </button>
+        <button onClick={onAdmin}
+          className="w-full rounded-xl py-3 font-medium border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors flex items-center justify-center gap-2">
+          <Lock size={15}/> Entrar como administrador
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin,operadorNome}) {
   const [viewDate,    setVD]  = useState(hoje());
   const [searchMode,  setSM]  = useState(false);
