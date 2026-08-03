@@ -3,7 +3,7 @@ import { dbGet, dbSet } from './supabase.js';
 import { Plus, Trash2, Package, Calculator, TrendingUp, X, Check, AlertCircle,
          ChevronDown, ChevronLeft, ChevronRight, Lock, Unlock, Eye, EyeOff, KeyRound,
          Pencil, PackagePlus, FileDown, FileSpreadsheet, Calendar, Search,
-         ArrowUp, ArrowDown, GripVertical, Wallet, Boxes, Settings, Sparkles, ClipboardCheck } from 'lucide-react';
+         ArrowUp, ArrowDown, GripVertical, Wallet, Boxes, Settings, Sparkles, ClipboardCheck, Users } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // ─────────────────────────────────────────────
@@ -114,6 +114,9 @@ export default function App() {
   const [pwdHash,  setPwd]  = useState(null);
   const [isAdmin,  setAdm]  = useState(false);
   const [authOpen, setAuth] = useState(false);
+  const [operadores,   setOps]  = useState([]);   // [{id,nome,senhaHash}]
+  const [operadorLog,  setOpLg] = useState(null);  // {id,nome} operador logado neste dispositivo
+  const [opAuthOpen,   setOpAuth] = useState(false);
 
   // ── load ──
   useEffect(()=>{ (async()=>{
@@ -139,6 +142,12 @@ export default function App() {
     setPrem(await dbGet('sdp:prem',   PREM_PAD));
     setCons(await dbGet('sdp:cons',   CONSUMO_PAD));
     setPwd( await dbGet('sdp:pwdh',   null));
+    setOps( await dbGet('sdp:operadores', []));
+    // ── restaurar sessão do operador (se houver, neste dispositivo) ──
+    try {
+      const sess = JSON.parse(localStorage.getItem('sdp:op_session')||'null');
+      if (sess?.id) setOpLg(sess);
+    } catch {}
     setRdy(true);
   })(); },[]);
 
@@ -149,6 +158,7 @@ export default function App() {
   useEffect(()=>{ if(ready) dbSet('sdp:prem',  prem);   },[prem,   ready]);
   useEffect(()=>{ if(ready) dbSet('sdp:cons',  consumo);},[consumo,ready]);
   useEffect(()=>{ if(ready&&pwdHash!==null) dbSet('sdp:pwdh',pwdHash); },[pwdHash,ready]);
+  useEffect(()=>{ if(ready) dbSet('sdp:operadores', operadores); },[operadores, ready]);
 
   // redirecionar se perdeu admin
   useEffect(()=>{ if(!isAdmin&&tab!=='pedidos') setTab('pedidos'); },[isAdmin]);
@@ -210,6 +220,40 @@ export default function App() {
   };
   const lock = ()=>{ setAdm(false); setTab('pedidos'); };
 
+  // ── operadores (acesso restrito à aba Pedidos) ──
+  const addOperador = async (nome, senha) => {
+    const nm = nome.trim();
+    if (!nm) return {ok:false, msg:'Informe o nome'};
+    if (!senha) return {ok:false, msg:'Informe uma senha'};
+    if (operadores.some(o=>o.nome.toLowerCase()===nm.toLowerCase())) return {ok:false, msg:'Já existe um operador com esse nome'};
+    const senhaHash = await sha256(senha);
+    setOps(p=>[...p, {id:uid(), nome:nm, senhaHash}]);
+    return {ok:true};
+  };
+  const removeOperador = id => setOps(p=>p.filter(o=>o.id!==id));
+  const resetSenhaOperador = async (id, novaSenha) => {
+    if (!novaSenha) return {ok:false, msg:'Informe uma senha'};
+    const senhaHash = await sha256(novaSenha);
+    setOps(p=>p.map(o=>o.id===id?{...o,senhaHash}:o));
+    return {ok:true};
+  };
+  const loginOperador = async (nome, senha) => {
+    const nm = nome.trim();
+    const op = operadores.find(o=>o.nome.toLowerCase()===nm.toLowerCase());
+    if (!op) return {ok:false, msg:'Operador não encontrado'};
+    const h = await sha256(senha);
+    if (h !== op.senhaHash) return {ok:false, msg:'Senha incorreta'};
+    const sess = {id:op.id, nome:op.nome};
+    setOpLg(sess);
+    try { localStorage.setItem('sdp:op_session', JSON.stringify(sess)); } catch {}
+    setOpAuth(false);
+    return {ok:true};
+  };
+  const logoutOperador = () => {
+    setOpLg(null);
+    try { localStorage.removeItem('sdp:op_session'); } catch {}
+  };
+
   // ── gestão kits ──
   const addKit    = d=>{ const id=uid(); setKits(p=>[...p,{...d,id}]); setPrc(p=>({...p,[id]:d.pr||0})); setCons(p=>({...p,[id]:{el:0,li:0}})); };
   const updateKit = (id,d)=>{ setKits(p=>p.map(k=>k.id===id?{...k,nome:d.nome,metragem:d.metragem,suporte:d.suporte,tecido:d.tecido||k.tecido||'helanca'}:k)); setPrc(p=>({...p,[id]:d.pr||0})); };
@@ -237,6 +281,7 @@ export default function App() {
     {id:'config',     l:'Configuração',  I:Settings,      pub:false},
   ];
   const goTo = (id,pub) => { if(!pub && !isAdmin){ setAuth(true); return; } setTab(id); };
+  const navItems = (operadorLog && !isAdmin) ? NAV_ITEMS.filter(n=>n.pub) : NAV_ITEMS;
 
   return (
     <div className="min-h-screen" style={{background:'#FAF7F2'}}>
@@ -258,7 +303,7 @@ export default function App() {
         </div>
 
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map(({id,l,I,pub})=>{
+          {navItems.map(({id,l,I,pub})=>{
             const active = tab===id;
             const locked = !pub && !isAdmin;
             return (
@@ -276,13 +321,30 @@ export default function App() {
           <div className="rounded-2xl p-4" style={{background:'linear-gradient(145deg,#FFF3EC,#FFE4D6)'}}>
             <Sparkles size={18} style={{color:'#C65D3C'}}/>
             <p className="fd text-sm text-stone-900 mt-2 leading-snug">
-              {isAdmin ? 'Você está no modo administrador.' : 'Organize seus pedidos e acompanhe tudo com mais controle.'}
+              {operadorLog && !isAdmin ? <>Operador: <b>{operadorLog.nome}</b></> :
+               isAdmin ? 'Você está no modo administrador.' : 'Organize seus pedidos e acompanhe tudo com mais controle.'}
             </p>
-            <button onClick={()=>isAdmin?lock():setAuth(true)}
-              className="mt-3 w-full rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-              style={{background:'#FFFFFF',color:'#A6472B'}}>
-              {isAdmin?<><Unlock size={13}/> Bloquear admin</>:<><Lock size={13}/> Área administrativa</>}
-            </button>
+            {operadorLog && !isAdmin ? (
+              <button onClick={logoutOperador}
+                className="mt-3 w-full rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                style={{background:'#FFFFFF',color:'#A6472B'}}>
+                <Unlock size={13}/> Sair
+              </button>
+            ) : (
+              <>
+                <button onClick={()=>isAdmin?lock():setAuth(true)}
+                  className="mt-3 w-full rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  style={{background:'#FFFFFF',color:'#A6472B'}}>
+                  {isAdmin?<><Unlock size={13}/> Bloquear admin</>:<><Lock size={13}/> Área administrativa</>}
+                </button>
+                {!isAdmin && (
+                  <button onClick={()=>setOpAuth(true)}
+                    className="mt-2 w-full text-center text-[11px] font-medium text-stone-400 hover:text-stone-600 transition-colors">
+                    Acesso do operador
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
       </aside>
@@ -303,15 +365,22 @@ export default function App() {
               <p className="text-[11px] text-stone-500 tracking-widest uppercase mt-0.5">controle de entrada</p>
             </div>
           </div>
-          <button onClick={()=>isAdmin?lock():setAuth(true)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isAdmin?'text-white':'bg-stone-100 text-stone-500 hover:bg-stone-200 hover:scale-105'}`}
-            style={isAdmin?{background:'linear-gradient(135deg,#2A2420,#1C1917)',boxShadow:'0 4px 14px rgba(28,25,23,0.35)'}:{}}
-            title={isAdmin?'Bloquear admin':'Área administrativa'}>
-            {isAdmin?<Unlock size={15}/>:<Lock size={15}/>}
+          <button onClick={()=> isAdmin ? lock() : (operadorLog ? logoutOperador() : setAuth(true))}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${(isAdmin||operadorLog)?'text-white':'bg-stone-100 text-stone-500 hover:bg-stone-200 hover:scale-105'}`}
+            style={(isAdmin||operadorLog)?{background:'linear-gradient(135deg,#2A2420,#1C1917)',boxShadow:'0 4px 14px rgba(28,25,23,0.35)'}:{}}
+            title={isAdmin?'Bloquear admin':operadorLog?`Sair (${operadorLog.nome})`:'Área administrativa'}>
+            {(isAdmin||operadorLog)?<Unlock size={15}/>:<Lock size={15}/>}
           </button>
         </div>
+        {!isAdmin && !operadorLog && (
+          <div className="max-w-4xl mx-auto px-4 pb-1">
+            <button onClick={()=>setOpAuth(true)} className="text-[11px] font-medium text-stone-400 hover:text-stone-600 transition-colors">
+              Acesso do operador
+            </button>
+          </div>
+        )}
         <nav className="max-w-4xl mx-auto px-4 flex gap-1 overflow-x-auto pb-2 pt-3">
-          {NAV_ITEMS.map(({id,l,I,pub})=>(
+          {navItems.map(({id,l,I,pub})=>(
             <button key={id} onClick={()=>goTo(id,pub)}
               className={`relative px-4 py-2 rounded-full text-sm font-medium flex items-center gap-1.5 whitespace-nowrap transition-all duration-300 ${tab===id?'text-white':'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}
               style={tab===id?{background:'linear-gradient(135deg,#C65D3C,#A6472B)',boxShadow:'0 3px 10px rgba(198,93,60,0.3)'}:{}}>
@@ -326,7 +395,7 @@ export default function App() {
       <main className="max-w-4xl mx-auto px-4 py-5 pb-24 md:ml-64 md:pl-4">
         {tab==='pedidos' &&
           <TabPedidos kits={kits} pedidos={pedidos} setPedidos={setPeds}
-            precos={precos} totais={totais} isAdmin={isAdmin}/>}
+            precos={precos} totais={totais} isAdmin={isAdmin} operadorNome={operadorLog?.nome||null}/>}
         {tab==='pagamento' && isAdmin &&
           <TabPagamento kits={kits} pedidos={pedidos} setPedidos={setPeds} precos={precos}/>}
         {tab==='custos' && isAdmin &&
@@ -342,10 +411,13 @@ export default function App() {
         {tab==='exportar' && isAdmin &&
           <ErrorBoundary><TabExportar pedidos={pedidos} kits={kits} precos={precos}/></ErrorBoundary>}
         {tab==='config' && isAdmin &&
-          <TabConfig onChangePwd={changePwd} onLock={lock}/>}
+          <TabConfig onChangePwd={changePwd} onLock={lock}
+            operadores={operadores} onAddOperador={addOperador}
+            onRemoveOperador={removeOperador} onResetSenhaOperador={resetSenhaOperador}/>}
       </main>
 
       {authOpen&&<ModalAuth hasHash={!!pwdHash} onClose={()=>setAuth(false)} onSubmit={unlock}/>}
+      {opAuthOpen&&<ModalAuthOperador onClose={()=>setOpAuth(false)} onSubmit={loginOperador}/>}
     </div>
   );
 }
@@ -353,7 +425,7 @@ export default function App() {
 // ─────────────────────────────────────────────
 // TAB PEDIDOS
 // ─────────────────────────────────────────────
-function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
+function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin,operadorNome}) {
   const [viewDate,    setVD]  = useState(hoje());
   const [searchMode,  setSM]  = useState(false);
   const [searchQuery, setSQ]  = useState('');
@@ -383,7 +455,7 @@ function TabPedidos({kits,pedidos,setPedidos,precos,totais,isAdmin}) {
     const validos = novoItens.filter(it=>it.kitId&&+it.qtd>0).map(it=>({...it,preco:it.preco!=null&&it.preco!==''?+it.preco:null}));
     const id = pedidos.length ? Math.max(...pedidos.map(p=>p.id))+1 : 1;
     const vp = novoVP!==''&&+novoVP>=0 ? +novoVP : null;
-    setPedidos(p=>[...p,{id, cliente:novoCli.trim(), telefone:novoTel.trim()||null, itens:validos, pagamento:novoPag, valorPago:vp, obs:novoObs.trim()||null, data:new Date().toISOString()}]);
+    setPedidos(p=>[...p,{id, cliente:novoCli.trim(), telefone:novoTel.trim()||null, itens:validos, pagamento:novoPag, valorPago:vp, obs:novoObs.trim()||null, data:new Date().toISOString(), criadoPor:operadorNome||null}]);
     setNC(''); setNT(''); setNI([{kitId:'',qtd:1}]); setNP('integral'); setNVP(''); setNO(''); setOK(null);
   };
   const del   = id => setPedidos(p=>p.filter(x=>x.id!==id));
@@ -725,7 +797,7 @@ function ModalEditarPedido({pedido, kits, precos, onSave, onClose}) {
           <div>
             <h3 className="fd text-xl text-stone-900">Editar pedido #{pedido.id}</h3>
             <p className="text-xs text-stone-400 mt-0.5">
-              Criado em {new Date(pedido.data).toLocaleDateString('pt-BR')}
+              Criado em {new Date(pedido.data).toLocaleDateString('pt-BR')}{pedido.criadoPor?` · lançado por ${pedido.criadoPor}`:''}
             </p>
           </div>
           <button onClick={onClose} className="w-9 h-9 rounded-xl flex items-center justify-center text-stone-400 hover:bg-stone-100">
@@ -916,6 +988,9 @@ function TabPagamento({kits,pedidos,setPedidos,precos}) {
   const [cIni, setCI]   = useState(hoje());
   const [cFim, setCF]   = useState(hoje());
   const [filtro, setFi] = useState('todos');
+  const [kitFiltro, setKF] = useState('todos');
+  const [openKitSel, setOKS] = useState(false);
+  const selectKit = (id) => { setKF(id); setOKS(false); };
 
   const pedPeriodo = useMemo(()=>{
     const sorted=[...pedidos].sort((a,b)=>new Date(b.data)-new Date(a.data));
@@ -934,9 +1009,13 @@ function TabPagamento({kits,pedidos,setPedidos,precos}) {
     integral: pedPeriodo.filter(p=>(p.pagamento||'integral')==='integral').length,
   }),[pedPeriodo]);
 
+  const pedPeriodoKit = useMemo(()=>
+    kitFiltro==='todos' ? pedPeriodo : pedPeriodo.filter(p=>getItens(p).some(it=>it.kitId===kitFiltro))
+  ,[pedPeriodo,kitFiltro]);
+
   const lista = useMemo(()=>
-    filtro==='todos' ? pedPeriodo : pedPeriodo.filter(p=>(p.pagamento||'integral')===filtro)
-  ,[pedPeriodo,filtro]);
+    filtro==='todos' ? pedPeriodoKit : pedPeriodoKit.filter(p=>(p.pagamento||'integral')===filtro)
+  ,[pedPeriodoKit,filtro]);
 
   const labelPeriodo = useMemo(()=>{
     const fmt = d => new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -986,11 +1065,51 @@ function TabPagamento({kits,pedidos,setPedidos,precos}) {
         )}
       </div>
 
+      {/* ── Seletor de produto ── */}
+      <div className="bg-white rounded-2xl border border-stone-200/80 overflow-hidden">
+        <button onClick={()=>setOKS(!openKitSel)}
+          className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-stone-50 transition-colors">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-stone-400 mb-0.5">Produto</p>
+            <p className="text-sm font-semibold text-stone-900">
+              {kitFiltro==='todos' ? 'Todos os produtos' : kits.find(k=>k.id===kitFiltro)?.nome||'—'}
+            </p>
+          </div>
+          <ChevronDown size={18} className={`text-stone-400 transition-transform duration-200 ${openKitSel?'rotate-180':''}`}/>
+        </button>
+        {openKitSel&&(
+          <div className="border-t border-stone-100 divide-y divide-stone-100 max-h-64 overflow-y-auto">
+            <button onClick={()=>selectKit('todos')}
+              className={`w-full flex items-center justify-between px-5 py-3 text-left transition-colors ${kitFiltro==='todos'?'text-white':'hover:bg-stone-50 text-stone-700'}`}
+              style={kitFiltro==='todos'?{background:'#2A2420'}:{}}>
+              <span className="text-sm font-medium">Todos os produtos</span>
+              <span className={`text-xs tabular-nums ${kitFiltro==='todos'?'opacity-60':'text-stone-400'}`}>
+                {pedPeriodo.length} pedido{pedPeriodo.length!==1?'s':''}
+              </span>
+            </button>
+            {kits.map(k=>{
+              const qtd=pedPeriodo.filter(p=>getItens(p).some(it=>it.kitId===k.id)).length;
+              const sel=kitFiltro===k.id;
+              return (
+                <button key={k.id} onClick={()=>selectKit(k.id)}
+                  className={`w-full flex items-center justify-between px-5 py-3 text-left transition-colors gap-3 ${sel?'text-white':'hover:bg-stone-50 text-stone-700'}`}
+                  style={sel?{background:'#C65D3C'}:{}}>
+                  <span className="text-sm font-medium truncate">{k.nome}</span>
+                  <span className={`text-xs tabular-nums flex-shrink-0 ${sel?'opacity-75':'text-stone-400'}`}>
+                    {qtd} pedido{qtd!==1?'s':''}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* ── Total de pedidos realizados (sem valores) ── */}
       <div className="rounded-2xl p-4 flex items-center justify-between" style={{background:'linear-gradient(135deg,#FFF3EC,#FFE4D6)',boxShadow:'0 4px 16px rgba(198,93,60,0.12)'}}>
         <div>
           <div className="text-[11px] uppercase tracking-wider" style={{color:'#A6472B'}}>Pedidos realizados</div>
-          <div className="fd text-2xl font-semibold mt-1" style={{color:'#A6472B'}}>{pedPeriodo.length}</div>
+          <div className="fd text-2xl font-semibold mt-1" style={{color:'#A6472B'}}>{pedPeriodoKit.length}</div>
         </div>
         <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{background:'linear-gradient(135deg,#C65D3C,#A6472B)',boxShadow:'0 3px 10px rgba(198,93,60,0.3)'}}>
@@ -1047,7 +1166,7 @@ function TabPagamento({kits,pedidos,setPedidos,precos}) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-stone-900">{p.cliente}</div>
-                    <div className="text-[11px] text-stone-400">{new Date(p.data).toLocaleDateString('pt-BR')}</div>
+                    <div className="text-[11px] text-stone-400">{new Date(p.data).toLocaleDateString('pt-BR')}{p.criadoPor?` · lançado por ${p.criadoPor}`:''}</div>
                     <div className="mt-1 space-y-0.5">
                       {itens.map((it,i)=>{
                         const kit=kits.find(k=>k.id===it.kitId);
@@ -1098,8 +1217,10 @@ function TabPagamento({kits,pedidos,setPedidos,precos}) {
 // ─────────────────────────────────────────────
 // TAB CONFIGURAÇÃO (admin)
 // ─────────────────────────────────────────────
-function TabConfig({onChangePwd,onLock}) {
+function TabConfig({onChangePwd,onLock,operadores,onAddOperador,onRemoveOperador,onResetSenhaOperador}) {
   const [chPwd, setChPwd] = useState(false);
+  const [novoOp, setNovoOp] = useState(false);
+  const [resetOp, setResetOp] = useState(null); // operador sendo resetado
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-2xl border border-stone-200/80 p-5">
@@ -1135,7 +1256,47 @@ function TabConfig({onChangePwd,onLock}) {
         </button>
       </div>
 
+      <div className="bg-white rounded-2xl border border-stone-200/80 p-5">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'#F5EBE5',color:'#C65D3C'}}>
+            <Users size={18}/>
+          </div>
+          <div>
+            <div className="font-semibold text-stone-900">Operadores</div>
+            <div className="text-xs text-stone-500">Acesso restrito à aba Pedidos, para registrar quem lançou cada pedido</div>
+          </div>
+        </div>
+
+        {operadores.length>0 && (
+          <div className="mt-4 space-y-2">
+            {operadores.map(op=>(
+              <div key={op.id} className="flex items-center justify-between gap-2 bg-stone-50 rounded-xl px-4 py-2.5">
+                <span className="text-sm font-medium text-stone-700 truncate">{op.nome}</span>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button onClick={()=>setResetOp(op)} title="Trocar senha"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-200 transition-colors">
+                    <KeyRound size={14}/>
+                  </button>
+                  <button onClick={()=>{ if(confirm(`Remover o acesso de ${op.nome}?`)) onRemoveOperador(op.id); }} title="Remover"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <Trash2 size={14}/>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={()=>setNovoOp(true)}
+          className="mt-4 w-full rounded-xl py-2.5 text-sm font-medium border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors flex items-center justify-center gap-1.5">
+          <Plus size={15}/> Criar acesso de operador
+        </button>
+      </div>
+
       {chPwd&&<ModalTrocarSenha onClose={()=>setChPwd(false)} onSubmit={onChangePwd}/>}
+      {novoOp&&<ModalOperador onClose={()=>setNovoOp(false)} onSubmit={async(nome,senha)=>{const r=await onAddOperador(nome,senha); if(r.ok) setNovoOp(false); return r;}}/>}
+      {resetOp&&<ModalOperador titulo={`Trocar senha — ${resetOp.nome}`} somenteSenha onClose={()=>setResetOp(null)}
+        onSubmit={async(_,senha)=>{const r=await onResetSenhaOperador(resetOp.id,senha); if(r.ok) setResetOp(null); return r;}}/>}
     </div>
   );
 }
@@ -2307,6 +2468,102 @@ function ModalTrocarSenha({onClose,onSubmit}) {
             <button onClick={go} className="w-full text-white rounded-xl py-3 font-medium" style={{background:'#C65D3C'}}>Alterar</button>
           </div>
         }
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MODAL OPERADOR — cadastro/reset de senha (admin)
+// ─────────────────────────────────────────────
+function ModalOperador({onClose,onSubmit,titulo,somenteSenha}) {
+  const [nome,setNome]=useState(''), [pw,setPw]=useState(''), [pw2,setPw2]=useState(''),
+        [err,setEr]=useState(''), [ok,setOk]=useState(false), [busy,setBusy]=useState(false);
+  const go = async ()=>{
+    setEr('');
+    if(!somenteSenha && !nome.trim()){setEr('Informe o nome do operador');return;}
+    if(!pw){setEr('Informe uma senha');return;}
+    if(pw.length<4){setEr('Mínimo 4 caracteres');return;}
+    if(pw!==pw2){setEr('Senhas não coincidem');return;}
+    setBusy(true);
+    const r = await onSubmit(nome, pw);
+    setBusy(false);
+    if(!r.ok){setEr(r.msg||'Erro');return;}
+    setOk(true); setTimeout(onClose,900);
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm ai shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="fd text-xl text-stone-900">{titulo||'Criar acesso de operador'}</h3>
+          <button onClick={onClose} className="text-stone-400"><X size={19}/></button>
+        </div>
+        {ok
+          ?<div className="text-center py-6"><div className="inline-flex w-12 h-12 rounded-full items-center justify-center mb-3" style={{background:'#E1EFDB',color:'#3F6E3A'}}><Check size={20}/></div><p>Acesso salvo!</p></div>
+          :<div className="space-y-3">
+            {!somenteSenha && (
+              <Fld l="Nome do operador">
+                <input type="text" value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: João"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400"/>
+              </Fld>
+            )}
+            <Fld l="Senha">
+              <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400" placeholder="••••••"/>
+            </Fld>
+            <Fld l="Confirmar senha">
+              <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()}
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400" placeholder="••••••"/>
+            </Fld>
+            {err&&<ErrBox msg={err}/>}
+            <button onClick={go} disabled={busy} className="w-full text-white rounded-xl py-3 font-medium disabled:opacity-50" style={{background:'#C65D3C'}}>
+              {busy?'Salvando…':'Salvar'}
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MODAL AUTH OPERADOR — login do operador (aba Pedidos apenas)
+// ─────────────────────────────────────────────
+function ModalAuthOperador({onClose,onSubmit}) {
+  const [nome,setNome]=useState(''), [pw,setPw]=useState(''), [err,setEr]=useState(''), [busy,setBusy]=useState(false);
+  const go = async ()=>{
+    setEr('');
+    if(!nome.trim()||!pw){setEr('Preencha nome e senha');return;}
+    setBusy(true);
+    const r = await onSubmit(nome, pw);
+    setBusy(false);
+    if(!r.ok){setEr(r.msg||'Erro');return;}
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm ai shadow-2xl">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{background:'#F5EBE5',color:'#C65D3C'}}><Users size={16}/></div>
+            <h3 className="fd text-xl text-stone-900">Acesso do operador</h3>
+          </div>
+          <button onClick={onClose} className="text-stone-400"><X size={19}/></button>
+        </div>
+        <p className="text-sm text-stone-500 mb-5">Entre com o nome e a senha cadastrados pelo administrador.</p>
+        <div className="space-y-3">
+          <Fld l="Nome">
+            <input type="text" value={nome} onChange={e=>setNome(e.target.value)}
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400" placeholder="Seu nome"/>
+          </Fld>
+          <Fld l="Senha">
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&go()}
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-900 focus:outline-none focus:border-stone-400" placeholder="••••••"/>
+          </Fld>
+          {err&&<ErrBox msg={err}/>}
+          <button onClick={go} disabled={busy} className="w-full text-white rounded-xl py-3 font-medium disabled:opacity-50" style={{background:'#C65D3C'}}>
+            {busy?'Entrando…':'Entrar'}
+          </button>
+        </div>
       </div>
     </div>
   );
