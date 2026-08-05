@@ -160,6 +160,34 @@ export default function App() {
   useEffect(()=>{ if(ready&&pwdHash!==null) dbSet('sdp:pwdh',pwdHash); },[pwdHash,ready]);
   useEffect(()=>{ if(ready) dbSet('sdp:operadores', operadores); },[operadores, ready]);
 
+  // ── auto-atualização em segundo plano (sem recarregar a página) ──
+  // Busca pedidos e operadores periodicamente e quando a aba volta a ficar visível,
+  // para refletir lançamentos feitos em outros dispositivos sem perder a sessão logada.
+  useEffect(()=>{
+    if(!ready) return;
+    let ativo = true;
+    const atualizar = async () => {
+      const [peds, ops] = await Promise.all([
+        dbGet('sdp:peds', null),
+        dbGet('sdp:operadores', null),
+      ]);
+      if(!ativo) return;
+      if(peds!==null) setPeds(peds);
+      if(ops!==null)  setOps(ops);
+    };
+    const id = setInterval(atualizar, 8000);
+    const onFocus = () => atualizar();
+    const onVisible = () => { if(document.visibilityState==='visible') atualizar(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      ativo = false;
+      clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  },[ready]);
+
   // redirecionar se perdeu admin
   useEffect(()=>{ if(!isAdmin&&tab!=='pedidos') setTab('pedidos'); },[isAdmin]);
 
